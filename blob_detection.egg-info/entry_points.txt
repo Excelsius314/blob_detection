@@ -1,0 +1,2 @@
+[console_scripts]
+cv2_blob_detector_node = blob_detection.cv2_blob_detector_node:main
