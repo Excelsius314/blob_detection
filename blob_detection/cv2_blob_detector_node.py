@@ -23,7 +23,7 @@ class BlobDetector(Node):
 
 
         self.color_angles = {"red" : (0, 15), "green": (65, 80), "blue": (100, 150)}
-        self.colors = ["red", "blue", "green"]
+        self.colors = ["red"] #, "blue", "green"]
 
         self.prev_known_centers = {color: (0,0) for color in self.colors}
         self.color_debuggers = {color: self.create_publisher(Image, "/color_debug/{}".format(color), 10) for color in self.colors}
