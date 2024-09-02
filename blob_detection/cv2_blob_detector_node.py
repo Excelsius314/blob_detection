@@ -227,7 +227,7 @@ class BlobDetector(Node):
             cv_image = cv.circle(cv_image, (int(center[1]), int(center[0])), 2, self.draw_colors[color], 1)
 
             coord_msg = Int16()
-            coord_msg.data = int(center[1] - w/2)
+            coord_msg.data = int(w/2 - center[1])
             self.color_center_pubs[color].publish(coord_msg)
 
         print("Publish results")
