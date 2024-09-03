@@ -19,11 +19,11 @@ class BlobDetector(Node):
 
         self.color_angles = {"red" : (0, 15), "green": (65, 80), "blue": (100, 150)}
         
-        self.declare_parameter('robot_names', value=["epuck1"] rclpy.Parameter.Type.STRING_ARRAY)
+        self.declare_parameter('robot_names', value=["epuck1"])
         self.robot_names = self.get_parameter("robot_names").get_parameter_value().string_array_value
         self.get_logger().info('Robot_names: {}'.format(self.robot_names))
 
-        self.declare_parameter('corresponding_colors', value=["red", "green", "blue"] rclpy.Parameter.Type.STRING_ARRAY)
+        self.declare_parameter('corresponding_colors', value=["red"])
         self.colors = self.get_parameter('corresponding_colors').get_parameter_value().string_array_value
         self.color_to_robot_name = {color:robot for color, robot in zip(self.colors, self.robot_names)}
 
