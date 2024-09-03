@@ -17,31 +17,30 @@ class BlobDetector(Node):
         super().__init__('cv2_blob_detector')
         self.bridge = CvBridge()
 
-        self.detection_publisher = self.create_publisher(Image, "/blob_detections", 10)
-        
-
-
         self.color_angles = {"red" : (0, 15), "green": (65, 80), "blue": (100, 150)}
-        self.colors = ["red"] #, "blue", "green"]
-        self.color_to_robot_name = {"red":"epuck1", "blue":"epuck2", "green":"epuck3"}
+        
+        self.declare_parameter('robot_names', value=["epuck1"] rclpy.Parameter.Type.STRING_ARRAY)
+        self.robot_names = self.get_parameter("robot_names").get_parameter_value().string_array_value
+        self.get_logger().info('Robot_names: {}'.format(self.robot_names))
 
-        self.prev_known_centers = {color: None for color in self.colors}
+        self.declare_parameter('corresponding_colors', value=["red", "green", "blue"] rclpy.Parameter.Type.STRING_ARRAY)
+        self.colors = self.get_parameter('corresponding_colors').get_parameter_value().string_array_value
+        self.color_to_robot_name = {color:robot for color, robot in zip(self.colors, self.robot_names)}
+
+
+        self.detection_publisher = self.create_publisher(Image, "/blob_detections", 10)
         self.color_debuggers = {color: self.create_publisher(Image, "/color_debug/{}".format(color), 10) for color in self.colors}
-
-
         self.image_subs = [self.create_subscription(CompressedImage, "/{}/image_raw/compressed".format(self.color_to_robot_name[color]),
                                                     lambda msg: self.detect_blobs(msg, color), 1) for color in self.colors]
-
-
         self.color_center_pubs = {color: self.create_publisher(Int16, "/{}/ball_coordinates".format(self.color_to_robot_name[color]), 10) for color in self.colors}
+
         self.draw_colors = {"red": (255, 0, 0), "blue": (0, 0, 255), "green": (0, 255, 0)}
+        self.prev_known_centers = {color: None for color in self.colors}
 
 
         self.blob_count_treshhold = 10
         self.blob_bin_size = 10
-
         self.min_saturation = 120
-
         self.border_point_bin_size = 10
 
     
@@ -102,7 +101,6 @@ class BlobDetector(Node):
             valid_points_h = valid_points[0][in_largest_blob]
             valid_points_w = valid_points[1][in_largest_blob]
 
-            print("got largest blob:")
             combined_valids = np.vstack((valid_points_h, valid_points_w)).transpose().astype(float)
             print(combined_valids)
             if len(combined_valids) == 0:
