@@ -10,31 +10,46 @@ from std_msgs.msg import Int16
 import matplotlib.pyplot as plt
 
 from scipy.optimize import least_squares
-
 class BlobDetector(Node):
 
     def __init__(self):
         super().__init__('cv2_blob_detector')
         self.bridge = CvBridge()
 
-        self.color_angles = {"red" : (0, 15), "green": (65, 80), "blue": (100, 150)}
+        # "red (0,15)"
+        # yellow: 25, 30)
+        self.color_angles = {"red" : (0, 15), "yellow": (25, 30), "blue": (100, 150)}
         
-        self.declare_parameter('robot_names', value=["epuck1"])
+        self.declare_parameter('robot_names', value=["epuck2"])
         self.robot_names = self.get_parameter("robot_names").get_parameter_value().string_array_value
         self.get_logger().info('Robot_names: {}'.format(self.robot_names))
 
-        self.declare_parameter('corresponding_colors', value=["red"])
+        self.declare_parameter('corresponding_colors', value=["yellow"])
         self.colors = self.get_parameter('corresponding_colors').get_parameter_value().string_array_value
         self.color_to_robot_name = {color:robot for color, robot in zip(self.colors, self.robot_names)}
 
+        self.get_logger().info("Robot - earch color association: {}".format(self.color_to_robot_name))
 
-        self.detection_publisher = self.create_publisher(Image, "/blob_detections", 10)
+
+        self.detection_publishers = {color: self.create_publisher(Image, "{}/blob_detections".format(self.color_to_robot_name[color]), 10) for color in self.colors}
+
+        def get_detec_blob_cb(color):
+
+            def detect_blob(msg):
+                return self.detect_blobs(msg, color)
+            
+            return detect_blob
+
         self.color_debuggers = {color: self.create_publisher(Image, "/color_debug/{}".format(color), 10) for color in self.colors}
         self.image_subs = [self.create_subscription(CompressedImage, "/{}/image_raw/compressed".format(self.color_to_robot_name[color]),
-                                                    lambda msg: self.detect_blobs(msg, color), 1) for color in self.colors]
+                                                    get_detec_blob_cb(color), 1) for color in self.colors]
+        #self.image_subs = [self.create_subscription(CompressedImage, "/image_raw/compressed",
+        #                                            get_detec_blob_cb(color), 1) for color in self.colors]
+        
+        self.get_logger().info("Subs: {}".format([sub.topic_name for sub in self.image_subs]))
         self.color_center_pubs = {color: self.create_publisher(Int16, "/{}/ball_coordinates".format(self.color_to_robot_name[color]), 10) for color in self.colors}
 
-        self.draw_colors = {"red": (255, 0, 0), "blue": (0, 0, 255), "green": (0, 255, 0)}
+        self.draw_colors = {"red": (255, 0, 0), "blue": (0, 0, 255), "yellow": (0, 255, 255)}
         self.prev_known_centers = {color: None for color in self.colors}
 
 
@@ -191,9 +206,19 @@ class BlobDetector(Node):
                  cv_image = self.bridge.imgmsg_to_cv2(img_msg, desired_encoding="rgb8")
 
         except CvBridgeError as e:
-            print(e)
+            self.get_logger.error(e)
 
+
+        #self.get_logger().info("Received img from {}".format(color))
         h,w = cv_image.shape[0], cv_image.shape[1]
+
+        #color_corrected = cv_image.copy().astype(float)
+        #intensities = np.sum(color_corrected, axis=2)
+        #color_corrected[:, :, 1] = color_corrected[:, :, 1] * 0.75
+        #new_intensities = np.sum(color_corrected, axis=2)
+        #color_corrected = np.clip(color_corrected * (intensities/new_intensities).reshape(h, w, 1), 0, 255)
+        #color_corrected = np.floor(color_corrected)
+        #cv_image = color_corrected.astype("uint8")
 
         # hsv
         hsv_im = cv.cvtColor(cv_image, cv.COLOR_RGB2HSV)
@@ -231,7 +256,7 @@ class BlobDetector(Node):
         print("Publish results")
         result_msg = self.bridge.cv2_to_imgmsg(cv_image, encoding='rgb8')
         result_msg.header = img_msg.header
-        self.detection_publisher.publish(result_msg)
+        self.detection_publishers[color].publish(result_msg)
 
 
 def main(args=None):
